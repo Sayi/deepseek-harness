@@ -989,10 +989,11 @@ async function main(): Promise<void> {
   const macosTrayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-macosTemplate.png') : join(process.resourcesPath, 'tray-macosTemplate.png')
   if (process.platform === 'win32' || process.platform === 'darwin') {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
-    // macOS carries the same entries as a menu bar status item, marked as a template image so the bar colors it.
+    // macOS shows the same icon as a menu bar status item, marked as a template image and left without a
+    // menu so a click reaches the application; Windows keeps its open and quit entries in the tray menu.
     const macOS = process.platform === 'darwin'
     try {
-      tray = new DesktopTray({ iconPath: macOS ? macosTrayIconPath : trayIconPath, templateImage: macOS,
+      tray = new DesktopTray({ iconPath: macOS ? macosTrayIconPath : trayIconPath, templateImage: macOS, contextMenu: !macOS,
         locale: currentDesktopLocale, open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }

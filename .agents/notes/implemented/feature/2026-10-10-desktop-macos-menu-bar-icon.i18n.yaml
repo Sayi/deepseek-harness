@@ -3,14 +3,14 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-10-desktop-macos-menu-bar-icon.md
 /agent-note-desktop-macos-menu-bar-icon:
-  en: ca184711218e4d8c
-  zh: d8d84e4ead73a027
+  en: b1acf29b096ce41a
+  zh: 01ebf263fce23ca4
 /agent-note-desktop-macos-menu-bar-icon/problem:
   en: b08db9fd4757ea1d
   zh: 0525f41df145506d
 /agent-note-desktop-macos-menu-bar-icon/decision:
-  en: 7a4d0b09104cfc61
-  zh: ddc46c1af5df72a7
+  en: b9db80e9e3a03b39
+  zh: 18b1b519ce0a8176
 /agent-note-desktop-macos-menu-bar-icon/decision/icon-assets:
   en: c1bf4279df33272c
   zh: 4fc50d81a272fd6c
@@ -18,8 +18,8 @@
   en: 844973a6ae786594
   zh: bbc8d0e8f2195464
 /agent-note-desktop-macos-menu-bar-icon/decision/macos-click-behavior:
-  en: dbdb67c7f472a06d
-  zh: 283ef3132e8db758
+  en: cda64e366251017e
+  zh: 7a65eedff757d1ae
 /agent-note-desktop-macos-menu-bar-icon/decision/packaging:
   en: 71e5a3cf41a99753
   zh: baef21e91b9868e0
@@ -27,8 +27,8 @@
   en: 9fd8c87a54696724
   zh: fc4ddfe84a1bf066
 /agent-note-desktop-macos-menu-bar-icon/testing:
-  en: 00a176d23a6d9cc1
-  zh: 689c2f4c1670399d
+  en: 32298dce089fdb58
+  zh: 1e5635a83ef88295
 /agent-note-desktop-macos-menu-bar-icon/consequences:
   en: a2bec2a3c33f3826
   zh: ed533c565f560873

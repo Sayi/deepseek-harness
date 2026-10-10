@@ -1,4 +1,4 @@
-/** Windows notification area and macOS menu bar item: the always-present way back to a hidden window and the explicit quit entry. */
+/** Windows notification area and macOS menu bar item: the always-present way back to a hidden window, with a Windows-only menu. */
 
 import { Menu, nativeImage, Tray } from 'electron'
 import type { DesktopLocale } from './locale.ts'
@@ -15,6 +15,11 @@ export interface DesktopTrayOptions {
    * The Windows ICO carries its own painted bitmaps and stays untemplated.
    */
   readonly templateImage?: boolean
+  /**
+   * Set a context menu holding the open and quit entries. Windows needs it as the notification area's
+   * own way out; macOS sets none, so a click reaches the application and focuses the window instead.
+   */
+  readonly contextMenu: boolean
   readonly locale: () => DesktopLocale
   /** Show and focus the primary window. */
   readonly open: () => void
@@ -26,7 +31,7 @@ export interface DesktopTrayOptions {
 export class DesktopTray {
   private tray: Tray | undefined
 
-  /** @param options - Icon path, template mode, locale reader, and the open and quit actions. */
+  /** @param options - Icon path, template and context-menu modes, locale reader, and the open and quit actions. */
   constructor(private readonly options: DesktopTrayOptions) {
     const image = nativeImage.createFromPath(options.iconPath)
     if (options.templateImage === true) image.setTemplateImage(true)
@@ -36,12 +41,13 @@ export class DesktopTray {
     this.relabel()
   }
 
-  /** Rebuild the tooltip and context menu in the current locale. */
+  /** Rebuild the tooltip, and the context menu where one is wanted, in the current locale. */
   relabel(): void {
     const tray = this.tray
     if (tray === undefined) return
     const { messages } = this.options.locale()
     tray.setToolTip(messages.aboutProduct)
+    if (!this.options.contextMenu) return
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: messages.openApplication, click: () => { this.options.open() } },
       { type: 'separator' },

@@ -38,11 +38,11 @@ vi.mock('electron', () => ({
 
 afterEach(() => { native.trays.length = 0; native.images.length = 0; native.menus.length = 0; vi.clearAllMocks() })
 
-function setup(locale = 'en', templateImage?: boolean) {
+function setup(locale = 'en', templateImage?: boolean, contextMenu = true) {
   let current = resolveDesktopLocale(locale)
   const open = vi.fn()
   const quit = vi.fn()
-  const tray = new DesktopTray({ iconPath: 'C:/app/resources/tray.ico',
+  const tray = new DesktopTray({ iconPath: 'C:/app/resources/tray.ico', contextMenu,
     ...(templateImage === undefined ? {} : { templateImage }),
     locale: () => current, open, quit })
   return { tray, open, quit, native: native.trays[0]!, image: native.images.at(-1)!,
@@ -66,6 +66,18 @@ it('leaves a painted Windows bitmap untemplated and marks the macOS menu bar ima
   expect(setup().image.setTemplateImage).not.toHaveBeenCalled()
   const f = setup('en', true)
   expect(f.image.setTemplateImage).toHaveBeenCalledWith(true)
+})
+
+it('leaves the macOS menu bar item without a menu, so its click reaches the window', () => {
+  const f = setup('en', true, false)
+  expect(f.native.setToolTip).toHaveBeenCalledWith('DeepSeek Harness')
+  expect(f.native.setContextMenu).not.toHaveBeenCalled()
+  expect(native.menus).toHaveLength(0)
+  f.setLocale('zh')
+  f.tray.relabel()
+  expect(f.native.setContextMenu).not.toHaveBeenCalled()
+  f.native.emit('click')
+  expect(f.open).toHaveBeenCalledOnce()
 })
 
 it('opens the window on a single click and routes menu entries to the open and quit actions', () => {

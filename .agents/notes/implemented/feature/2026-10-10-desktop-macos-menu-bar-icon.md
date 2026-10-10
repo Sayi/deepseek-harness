@@ -4,7 +4,7 @@ Status: implemented
 
 English | [中文](2026-10-10-desktop-macos-menu-bar-icon.zh.md)
 
-The macOS status item carries the same Open and Quit entries as the Windows tray, which the [close and quit decision](../architecture/2026-09-23-desktop-close-to-background-and-quit-confirmation.md) owns; this note records only the macOS asset, wiring, and packaging that decision deliberately left out.
+The macOS status item opens the window on a click and carries no menu, which the [close and quit decision](../architecture/2026-09-23-desktop-close-to-background-and-quit-confirmation.md) owns; this note records only the macOS asset, wiring, and packaging that decision deliberately left out.
 
 ## Problem
 
@@ -12,7 +12,7 @@ Closing the Desktop main window hides it: the page and the Host keep running, an
 
 ## Decision
 
-macOS carries a menu bar status item, created at startup and present for the whole run, with the same role as the Windows tray: a visible entry point back to the hidden window and one explicit Quit. Windows behavior, assets, and the first-hide acknowledgement are unchanged, and macOS keeps its Dock icon and still asks for no acknowledgement before the first hide.
+macOS carries a menu bar status item, created at startup and present for the whole run, with the same role as the Windows tray: a visible entry point back to the hidden window. It deliberately carries no menu, so a click reaches the application instead of opening one, and quitting goes through the application menu, ⌘Q, or the Dock. Windows behavior, assets, and the first-hide acknowledgement are unchanged, and macOS keeps its Dock icon and still asks for no acknowledgement before the first hide.
 
 ### Icon assets
 
@@ -26,7 +26,7 @@ macOS carries a menu bar status item, created at startup and present for the who
 
 ### macOS click behavior
 
-The status item has a context menu, so macOS opens that menu on a click and the `click` handler is the Windows path. The shared class keeps binding it for both platforms rather than branching on the platform, since the handler is correct wherever the event arrives.
+The status item sets no context menu, so macOS delivers the click to the application and the shared `click` handler shows or focuses the window. `DesktopTray` builds a menu only when its `contextMenu` option asks for one, which the Windows tray does.
 
 ### Packaging
 
@@ -46,7 +46,7 @@ The status item has a context menu, so macOS opens that menu on a click and the 
 
 ## Testing
 
-Unit tests pin the committed template images (edges, transparent background, pure-black opaque pixels, the rounded tile filling the canvas with the whale knocked out of it, and Retina ink at twice the standard ink), the renderer's rejection of a vector source without a tray glyph, the template marking in `DesktopTray`, the macOS and Windows icon paths in `main.ts` with the menu bar item's click and close paths, the per-platform `extraResources` split, and the macOS release configuration's resource list.
+Unit tests pin the committed template images (edges, transparent background, pure-black opaque pixels, the rounded tile filling the canvas with the whale knocked out of it, and Retina ink at twice the standard ink), the renderer's rejection of a vector source without a tray glyph, the template marking and menu-free mode of `DesktopTray`, the macOS and Windows icon paths in `main.ts` with the menu bar item's click and close paths, the per-platform `extraResources` split, and the macOS release configuration's resource list.
 
 The template rendering, the Retina `@2x` load, and the dark-mode inversion are macOS and Electron behaviors no unit test proves. They need one manual pass on a Retina macOS machine, which the proposal's acceptance criteria name and no automated lane covers.
 

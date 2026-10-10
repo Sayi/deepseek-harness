@@ -1299,6 +1299,8 @@ describe('desktop main startup', () => {
     expect(harness.trays).toHaveLength(1)
     expect(harness.trays[0]!.image.path).toBe(join('desktop-test-resources', 'tray-macosTemplate.png'))
     expect(harness.trays[0]!.image.setTemplateImage).toHaveBeenCalledWith(true)
+    // No menu: the click has to reach the application so it opens the window itself.
+    expect(harness.trays[0]!.setContextMenu).not.toHaveBeenCalled()
     expect(harness.backgroundNotice.markerPath).toBeUndefined()
     window.show.mockClear()
     window.close()

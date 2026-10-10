@@ -4,7 +4,7 @@ Status: implemented
 
 [English](2026-10-10-desktop-macos-menu-bar-icon.md) | 中文
 
-macOS 状态栏项提供与 Windows 托盘相同的「打开」与「退出」入口，这两项行为由[关闭与退出决策](../architecture/2026-09-23-desktop-close-to-background-and-quit-confirmation.zh.md)负责；本笔记只记录该决策有意留给后人的 macOS 资源、接线与打包。
+macOS 状态栏项点击即打开窗口、不提供任何菜单，这两项行为由[关闭与退出决策](../architecture/2026-09-23-desktop-close-to-background-and-quit-confirmation.zh.md)负责；本笔记只记录该决策有意留给后人的 macOS 资源、接线与打包。
 
 ## 问题
 
@@ -12,7 +12,7 @@ macOS 状态栏项提供与 Windows 托盘相同的「打开」与「退出」�
 
 ## 决策
 
-macOS 常驻菜单栏状态栏项，启动即创建、整个运行期间存在，作用与 Windows 托盘一致：一个回到已隐藏窗口的可见入口，以及一个显式的退出项。Windows 的行为、资源与首次隐藏提示保持不变；macOS 同时保留 Dock 图标，首次隐藏前依然不做任何确认。
+macOS 常驻菜单栏状态栏项，启动即创建、整个运行期间存在，作用与 Windows 托盘一致：一个回到已隐藏窗口的可见入口。它有意不提供任何菜单，点击事件因此直达应用而不是展开菜单；退出走应用菜单、⌘Q 或 Dock。Windows 的行为、资源与首次隐藏提示保持不变；macOS 同时保留 Dock 图标，首次隐藏前依然不做任何确认。
 
 ### 图标资源
 
@@ -26,7 +26,7 @@ macOS 常驻菜单栏状态栏项，启动即创建、整个运行期间存在�
 
 ### macOS 点击行为
 
-状态栏项带有上下文菜单，因此 macOS 在点击时弹出该菜单，`click` 处理器是 Windows 的路径。共享类仍然为两个平台绑定它，而不是按平台分支，因为该处理器在任何收到事件的地方都正确。
+状态栏项不设置上下文菜单，因此 macOS 会把点击交给应用，由共享的 `click` 处理器显示并聚焦窗口。`DesktopTray` 只在 `contextMenu` 选项要求时才构建菜单，Windows 托盘正是如此。
 
 ### 打包
 
@@ -46,7 +46,7 @@ macOS 常驻菜单栏状态栏项，启动即创建、整个运行期间存在�
 
 ## 测试
 
-单元测试固定已提交的模板图像（尺寸、透明背景、纯黑不透明像素、圆角方块填满画布且鲸鱼镂空、Retina 墨迹为标准版的两倍），渲染脚本对缺少托盘图形的矢量源报错，`DesktopTray` 的模板标记，`main.ts` 中 macOS 与 Windows 的图标路径以及菜单栏项的点击与关闭路径，`extraResources` 的平台拆分，以及 macOS 发布配置的资源清单。
+单元测试固定已提交的模板图像（尺寸、透明背景、纯黑不透明像素、圆角方块填满画布且鲸鱼镂空、Retina 墨迹为标准版的两倍），渲染脚本对缺少托盘图形的矢量源报错，`DesktopTray` 的模板标记与无菜单模式，`main.ts` 中 macOS 与 Windows 的图标路径以及菜单栏项的点击与关闭路径，`extraResources` 的平台拆分，以及 macOS 发布配置的资源清单。
 
 模板图像渲染、Retina `@2x` 载入与深色模式反色是单元测试无法证明的 macOS 与 Electron 行为，需要在 Retina macOS 机器上人工验证一次；提案的验收标准已列出它，且没有任何自动化通道覆盖。
 
