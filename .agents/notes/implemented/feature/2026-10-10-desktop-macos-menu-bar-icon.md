@@ -16,7 +16,7 @@ macOS carries a menu bar status item, created at startup and present for the who
 
 ### Icon assets
 
-`resources/tray-macosTemplate.png` is 16×16 and `resources/tray-macosTemplate@2x.png` is 32×32. Both show the product's rounded square in black with the whale knocked out of it on a transparent background: every opaque pixel is pure black and the whale is transparent, which is what a macOS template image requires and what lets the system invert the tile for a dark menu bar. `apps/desktop/scripts/render-tray-icon.ts` produces both from the single `<path>` inside the `tray-glyph` group of `resources/icon-windows.svg`: it drops the enclosing drop-shadow filter, measures the path's alpha bounds, and subtracts that path from a rounded tile through an SVG mask, with the tile filling a 16 pt optical square inside a 1 pt margin and the whale held at 72 % of the tile's edge. Deriving from the committed vector keeps one artwork source rather than a duplicated path; `pnpm run render:tray-icon` in `apps/desktop` is the only producer of all three committed assets, the Windows ICO included.
+`resources/tray-macosTemplate.png` is 16×16 and `resources/tray-macosTemplate@2x.png` is 32×32. Both show the product's rounded square in black with the whale knocked out of it on a transparent background: every opaque pixel is pure black and the whale is transparent, which is what a macOS template image requires and what lets the system invert the tile for a dark menu bar. `apps/desktop/scripts/render-tray-icon.ts` produces both from the single `<path>` inside the `tray-glyph` group of `resources/icon-windows.svg`: it drops the enclosing drop-shadow filter, measures the path's alpha bounds, and subtracts that path from a rounded tile through an SVG mask, with the tile filling the 16 pt optical square edge to edge and the whale held at 76 % of the tile's edge. Deriving from the committed vector keeps one artwork source rather than a duplicated path; `pnpm run render:tray-icon` in `apps/desktop` is the only producer of all three committed assets, the Windows ICO included.
 
 ### Application integration
 
@@ -46,7 +46,7 @@ The status item has a context menu, so macOS opens that menu on a click and the 
 
 ## Testing
 
-Unit tests pin the committed template images (edges, transparent background, pure-black opaque pixels, the rounded tile filling the 1 pt margin with the whale knocked out of it, and Retina ink at twice the standard ink), the renderer's rejection of a vector source without a tray glyph, the template marking in `DesktopTray`, the macOS and Windows icon paths in `main.ts` with the menu bar item's click and close paths, the per-platform `extraResources` split, and the macOS release configuration's resource list.
+Unit tests pin the committed template images (edges, transparent background, pure-black opaque pixels, the rounded tile filling the canvas with the whale knocked out of it, and Retina ink at twice the standard ink), the renderer's rejection of a vector source without a tray glyph, the template marking in `DesktopTray`, the macOS and Windows icon paths in `main.ts` with the menu bar item's click and close paths, the per-platform `extraResources` split, and the macOS release configuration's resource list.
 
 The template rendering, the Retina `@2x` load, and the dark-mode inversion are macOS and Electron behaviors no unit test proves. They need one manual pass on a Retina macOS machine, which the proposal's acceptance criteria name and no automated lane covers.
 

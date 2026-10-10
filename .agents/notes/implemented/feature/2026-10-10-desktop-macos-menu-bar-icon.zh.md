@@ -16,7 +16,7 @@ macOS 常驻菜单栏状态栏项，启动即创建、整个运行期间存在�
 
 ### 图标资源
 
-`resources/tray-macosTemplate.png` 为 16×16，`resources/tray-macosTemplate@2x.png` 为 32×32。两者在透明背景上呈现产品的圆角方块、鲸鱼镂空：所有不透明像素均为纯黑，鲸鱼为透明——这是 macOS 模板图像的硬性要求，也让系统能在深色菜单栏上反色该方块。`apps/desktop/scripts/render-tray-icon.ts` 从 `resources/icon-windows.svg` 中 `tray-glyph` 组里的那条 `<path>` 生成两者：去掉外层投影滤镜，测量该路径的 alpha 包围盒，再通过 SVG 蒙版把它从圆角方块里减去；方块在 1 pt 留白内填满 16 pt 的视觉方框，鲸鱼则保持在方块边长的 72%。从已提交的矢量源派生可以避免复制一份路径数据；`apps/desktop` 下的 `pnpm run render:tray-icon` 是三份已提交资源（含 Windows ICO）的唯一产出途径。
+`resources/tray-macosTemplate.png` 为 16×16，`resources/tray-macosTemplate@2x.png` 为 32×32。两者在透明背景上呈现产品的圆角方块、鲸鱼镂空：所有不透明像素均为纯黑，鲸鱼为透明——这是 macOS 模板图像的硬性要求，也让系统能在深色菜单栏上反色该方块。`apps/desktop/scripts/render-tray-icon.ts` 从 `resources/icon-windows.svg` 中 `tray-glyph` 组里的那条 `<path>` 生成两者：去掉外层投影滤镜，测量该路径的 alpha 包围盒，再通过 SVG 蒙版把它从圆角方块里减去；方块填满整个 16 pt 视觉方框，鲸鱼则保持在方块边长的 76%。从已提交的矢量源派生可以避免复制一份路径数据；`apps/desktop` 下的 `pnpm run render:tray-icon` 是三份已提交资源（含 Windows ICO）的唯一产出途径。
 
 ### 应用集成
 
@@ -46,7 +46,7 @@ macOS 常驻菜单栏状态栏项，启动即创建、整个运行期间存在�
 
 ## 测试
 
-单元测试固定已提交的模板图像（尺寸、透明背景、纯黑不透明像素、1 pt 留白内被圆角方块填满且鲸鱼镂空、Retina 墨迹为标准版的两倍），渲染脚本对缺少托盘图形的矢量源报错，`DesktopTray` 的模板标记，`main.ts` 中 macOS 与 Windows 的图标路径以及菜单栏项的点击与关闭路径，`extraResources` 的平台拆分，以及 macOS 发布配置的资源清单。
+单元测试固定已提交的模板图像（尺寸、透明背景、纯黑不透明像素、圆角方块填满画布且鲸鱼镂空、Retina 墨迹为标准版的两倍），渲染脚本对缺少托盘图形的矢量源报错，`DesktopTray` 的模板标记，`main.ts` 中 macOS 与 Windows 的图标路径以及菜单栏项的点击与关闭路径，`extraResources` 的平台拆分，以及 macOS 发布配置的资源清单。
 
 模板图像渲染、Retina `@2x` 载入与深色模式反色是单元测试无法证明的 macOS 与 Electron 行为，需要在 Retina macOS 机器上人工验证一次；提案的验收标准已列出它，且没有任何自动化通道覆盖。
 

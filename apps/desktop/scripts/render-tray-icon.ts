@@ -40,12 +40,12 @@ const SOURCE_EDGE = 1024
 const SOURCE_DENSITY = 72
 /** ViewBox of the vector source, which pads the 1024-unit tile to 1104 units. */
 const SOURCE_VIEWBOX_EDGE = 1104
-/** Optical box the menu bar tile is fitted into, and its transparent margin, in points. */
+/** Optical box the menu bar tile fills, and its transparent margin, in points. */
 const MACOS_GLYPH_EDGE = 16
-const MACOS_GLYPH_MARGIN = 1
+const MACOS_GLYPH_MARGIN = 0
 /** Corner radius of that tile, and the largest whale edge inside it, as fractions of the tile edge. */
 const MACOS_TILE_RADIUS = 0.225
-const MACOS_TILE_GLYPH = 0.72
+const MACOS_TILE_GLYPH = 0.76
 /** Rasterized edge of the whale while measuring it; large enough that the bounds stay exact. */
 const MACOS_RASTER_EDGE = 1104
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])

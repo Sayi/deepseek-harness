@@ -85,13 +85,10 @@ describe('macOS menu bar template image', () => {
       // A template image is alpha-only: nothing painted, everything drawn in pure black.
       expect(facts.blackOnly).toBe(true)
       expect(facts.opaque).toBeGreaterThan(0)
-      // The glyph sits inside the 1 pt margin and fills the optical box on its limiting axis.
-      const box = facts.edge - 2 * (facts.edge / TRAY_MACOS_SIZES[0])
-      expect(facts.ink.left).toBeGreaterThanOrEqual(1)
-      expect(facts.ink.top).toBeGreaterThanOrEqual(1)
-      expect(facts.ink.left + facts.ink.width).toBeLessThanOrEqual(facts.edge - 1)
-      expect(facts.ink.top + facts.ink.height).toBeLessThanOrEqual(facts.edge - 1)
-      expect(Math.max(facts.ink.width, facts.ink.height)).toBeGreaterThanOrEqual(box - 1)
+      // The tile fills the optical box, so the item reads at the size of its menu bar neighbours.
+      expect(facts.ink.left + facts.ink.width).toBeLessThanOrEqual(facts.edge)
+      expect(facts.ink.top + facts.ink.height).toBeLessThanOrEqual(facts.edge)
+      expect(Math.min(facts.ink.width, facts.ink.height)).toBeGreaterThanOrEqual(facts.edge - 1)
     }
     // Both scales are one drawing: the Retina ink is twice the size within a rounding pixel.
     expect(Math.abs(retina.ink.width - standard.ink.width * 2)).toBeLessThanOrEqual(2)
