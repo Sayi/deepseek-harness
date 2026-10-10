@@ -25,6 +25,12 @@ vi.mock('../src/crash-report.ts', async importOriginal => ({
   pruneCrashReports: vi.fn(async () => {}),
 }))
 
+/** Tray image returned by the mocked `nativeImage.createFromPath`, carrying the template marker call. */
+interface FakeNativeImage {
+  readonly path: string
+  readonly setTemplateImage: ReturnType<typeof vi.fn>
+}
+
 const harness = await vi.hoisted(async () => {
   const { EventEmitter } = await import('node:events')
   function deferred() {
@@ -181,18 +187,19 @@ const harness = await vi.hoisted(async () => {
   const analytics = vi.fn(async (_event: unknown) => {})
   const nativeTheme = { themeSource: 'system', shouldUseDarkColors: false }
   const trays: FakeTray[] = []
+  const images: FakeNativeImage[] = []
   class FakeTray extends EventEmitter {
     readonly setToolTip = vi.fn()
     readonly setContextMenu = vi.fn()
     readonly destroy = vi.fn()
-    constructor(readonly image: unknown) { super(); trays.push(this) }
+    constructor(readonly image: FakeNativeImage) { super(); trays.push(this) }
   }
   const backgroundNotice = { close: vi.fn((hide: () => void) => { hide() }), dispose: vi.fn(), markerPath: undefined as string | undefined }
   const shellDialog = { isOpen: false, focus: vi.fn() }
   return {
     failWindow(error: Error) { windowFailure = error },
     windows, hosts, handlers, app, FakeWindow, FakeHost, powerMonitor, nativeTheme, analytics,
-    trays, FakeTray, backgroundNotice, shellDialog,
+    trays, images, FakeTray, backgroundNotice, shellDialog,
     menu, popup, socketHeaders: vi.fn(), loginShell, readLoginShell, updateCheck, updateDownload, updateInstall,
     platformDispose,
     platformCloseAndWait,
@@ -239,7 +246,7 @@ const harness = await vi.hoisted(async () => {
     reset() {
       accountListener = undefined
       windows.length = 0; hosts.length = 0; handlers.clear(); app.removeAllListeners()
-      trays.length = 0
+      trays.length = 0; images.length = 0
       backgroundNotice.markerPath = undefined
       shellDialog.isOpen = false
       powerMonitor.removeAllListeners()
@@ -296,7 +303,11 @@ vi.mock('electron', () => ({
   protocol: { registerSchemesAsPrivileged: vi.fn(), handle: harness.protocolHandle },
   powerMonitor: harness.powerMonitor,
   Tray: harness.FakeTray,
-  nativeImage: { createFromPath: (path: string) => ({ path }) },
+  nativeImage: { createFromPath: (path: string) => {
+    const image: FakeNativeImage = { path, setTemplateImage: vi.fn() }
+    harness.images.push(image)
+    return image
+  } },
 }))
 vi.mock('../src/background-notice.ts', () => ({ DesktopBackgroundNotice: class {
   constructor(options: { markerPath: string }) { harness.backgroundNotice.markerPath = options.markerPath }
@@ -1260,7 +1271,8 @@ describe('desktop main startup', () => {
     const host = await readyWorkspace()
     const window = harness.windows[0]!
     expect(harness.trays).toHaveLength(1)
-    expect(harness.trays[0]!.image).toEqual({ path: join('desktop-test-resources', 'tray.ico') })
+    expect(harness.trays[0]!.image.path).toBe(join('desktop-test-resources', 'tray.ico'))
+    expect(harness.trays[0]!.image.setTemplateImage).not.toHaveBeenCalled()
     expect(harness.backgroundNotice.markerPath).toBe(join(harness.app.getPath('userData'), 'background-close-confirmed'))
     window.show.mockClear()
     window.close()
@@ -1278,6 +1290,24 @@ describe('desktop main startup', () => {
     const relabels = harness.trays[0]!.setContextMenu.mock.calls.length
     harness.ipcOn.mock.calls.find(call => call[0] === DESKTOP_IPC.localeChanged)![1]({ sender: window.webContents, senderFrame: window.webContents.mainFrame }, 'zh')
     expect(harness.trays[0]!.setContextMenu.mock.calls.length).toBe(relabels + 1)
+  })
+
+  it('adds a macOS menu bar status item and hides on close without the Windows acknowledgement', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin', arch: 'arm64', resourcesPath: 'desktop-test-resources' })
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    expect(harness.trays).toHaveLength(1)
+    expect(harness.trays[0]!.image.path).toBe(join('desktop-test-resources', 'tray-macosTemplate.png'))
+    expect(harness.trays[0]!.image.setTemplateImage).toHaveBeenCalledWith(true)
+    expect(harness.backgroundNotice.markerPath).toBeUndefined()
+    window.show.mockClear()
+    window.close()
+    expect(window.isDestroyed()).toBe(false)
+    expect(window.hide).toHaveBeenCalledOnce()
+    expect(host.stop).not.toHaveBeenCalled()
+    harness.trays[0]!.emit('click')
+    expect(window.show).toHaveBeenCalledOnce()
+    expect(window.focus).toHaveBeenCalled()
   })
 
   it('keeps the workspace visible while acknowledgement is pending and ignores a destroyed window', async () => {
@@ -1307,7 +1337,6 @@ describe('desktop main startup', () => {
     vi.stubGlobal('process', { ...process, platform: 'darwin', arch: 'arm64', resourcesPath: 'desktop-test-resources' })
     await readyWorkspace()
     const window = harness.windows[0]!
-    expect(harness.trays).toHaveLength(0)
     window.fullscreen = true
     window.close()
     expect(window.setFullScreen).toHaveBeenCalledWith(false)

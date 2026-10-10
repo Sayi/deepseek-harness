@@ -143,8 +143,12 @@ export function createElectronBuilderConfig(
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
       { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
-      // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
+      // Windows tray bitmaps; macOS carries the menu bar template image and its Retina variant instead.
       ...(packagesWindows ? [{ from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' }] : []),
+      ...(packagesMacOS ? [
+        { from: fileURLToPath(new URL('../resources/tray-macosTemplate.png', import.meta.url)), to: 'tray-macosTemplate.png' },
+        { from: fileURLToPath(new URL('../resources/tray-macosTemplate@2x.png', import.meta.url)), to: 'tray-macosTemplate@2x.png' },
+      ] : []),
     ],
     mac: {
       icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),

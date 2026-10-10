@@ -1,12 +1,20 @@
-/** Windows system tray: the always-present way back to a hidden window and the explicit quit entry. */
+/** Windows notification area and macOS menu bar item: the always-present way back to a hidden window and the explicit quit entry. */
 
 import { Menu, nativeImage, Tray } from 'electron'
 import type { DesktopLocale } from './locale.ts'
 
 /** Main-process actions the tray triggers; both run the same paths as the window and application menu. */
 export interface DesktopTrayOptions {
-  /** Multi-size ICO rendered by `scripts/render-tray-icon.ts`; Windows picks the bitmap for the display scale. */
+  /**
+   * Image rendered by `scripts/render-tray-icon.ts`: the multi-size Windows ICO, whose bitmap Windows
+   * picks for the display scale, or the macOS template PNG, whose `@2x` sibling Electron loads with it.
+   */
   readonly iconPath: string
+  /**
+   * Mark the image as a macOS template image, so the menu bar paints it in the bar's current color.
+   * The Windows ICO carries its own painted bitmaps and stays untemplated.
+   */
+  readonly templateImage?: boolean
   readonly locale: () => DesktopLocale
   /** Show and focus the primary window. */
   readonly open: () => void
@@ -18,9 +26,11 @@ export interface DesktopTrayOptions {
 export class DesktopTray {
   private tray: Tray | undefined
 
-  /** @param options - Icon path, locale reader, and the open and quit actions. */
+  /** @param options - Icon path, template mode, locale reader, and the open and quit actions. */
   constructor(private readonly options: DesktopTrayOptions) {
-    const tray = new Tray(nativeImage.createFromPath(options.iconPath))
+    const image = nativeImage.createFromPath(options.iconPath)
+    if (options.templateImage === true) image.setTemplateImage(true)
+    const tray = new Tray(image)
     this.tray = tray
     tray.on('click', () => { options.open() })
     this.relabel()

@@ -1,0 +1,34 @@
+# Bilingual-pair consistency record for 2026-10-10-desktop-macos-menu-bar-icon.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-10-desktop-macos-menu-bar-icon.md
+/agent-note-desktop-macos-menu-bar-icon:
+  en: ca184711218e4d8c
+  zh: d8d84e4ead73a027
+/agent-note-desktop-macos-menu-bar-icon/problem:
+  en: b08db9fd4757ea1d
+  zh: 0525f41df145506d
+/agent-note-desktop-macos-menu-bar-icon/decision:
+  en: 7a4d0b09104cfc61
+  zh: ddc46c1af5df72a7
+/agent-note-desktop-macos-menu-bar-icon/decision/icon-assets:
+  en: d584ed6dfdce7571
+  zh: 9cbfb521b8dfbaef
+/agent-note-desktop-macos-menu-bar-icon/decision/application-integration:
+  en: 844973a6ae786594
+  zh: bbc8d0e8f2195464
+/agent-note-desktop-macos-menu-bar-icon/decision/macos-click-behavior:
+  en: dbdb67c7f472a06d
+  zh: 283ef3132e8db758
+/agent-note-desktop-macos-menu-bar-icon/decision/packaging:
+  en: 71e5a3cf41a99753
+  zh: baef21e91b9868e0
+/agent-note-desktop-macos-menu-bar-icon/alternatives-considered:
+  en: 9fd8c87a54696724
+  zh: fc4ddfe84a1bf066
+/agent-note-desktop-macos-menu-bar-icon/testing:
+  en: 58cc6c518854c170
+  zh: 96aac625bc92ef86
+/agent-note-desktop-macos-menu-bar-icon/consequences:
+  en: a2bec2a3c33f3826
+  zh: ed533c565f560873
