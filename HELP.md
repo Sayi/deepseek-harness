@@ -83,7 +83,7 @@ make dev-web ARGS='--no-open'
 
 7. 启动器会注册一个临时的 `Harness Dev.app`，它的 Info.plist 声明了 `dsh://`，可能抢走已安装客户端的协议处理器；再启动一次已安装客户端即可注册回去。
 
-## 2. 打包 macOS DMG
+## 2. 打包 macOS（DMG 或只要 .app）
 
 本地未签名包，不需要任何 Apple 凭据：
 
@@ -97,6 +97,22 @@ pnpm run package:desktop:mac:arm64:unsigned
 - 校验：`hdiutil verify "<dmg 路径>"`
 - 版本号默认取 `apps/desktop/package.json`；要指定就追加 `--build-version 0.2.1-alpha.3`。
 - Intel 机器把 `mac:arm64` 换成 `mac:x64`（`pnpm run package:desktop:mac:x64:unsigned`）。
+
+### 只要 `.app`、不要 DMG
+
+追加 `--dir` 即可（DMG 那一步会被跳过，也不会去下载 dmgbuild）：
+
+```sh
+cd apps/desktop
+ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries \
+DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com \
+pnpm run package:mac:arm64:dir --unsigned
+```
+
+产物：`apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/mac-arm64/DeepSeek Harness.app`
+（拖进「应用程序」即可；它仍是 ad-hoc 签名、无公证、无隔离标记。）
+
+> **必须用 `pnpm run` 调用，不要用 `npx tsx scripts/package-target.ts`。** 后者会把 `npm_execpath` 指向 **npm**，脚本内部转发 `release:pack --family dsh --out …` 时 npm 会把未知选项当成自己的配置吃掉、只把值当位置参数传下去，于是新版 `pack.ts` 报 `ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL: Unexpected argument 'dsh'`。同理，`pnpm run <script>` 后面**直接跟**选项是对的，**不要**加 `--` 分隔符（加了会被当字面量传下去反而出错）。
 
 **为什么必须带这两个镜像：**
 
