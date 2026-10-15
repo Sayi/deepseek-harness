@@ -56,11 +56,7 @@ make dev-web ARGS='--no-open'
    osascript -e 'tell application id "com.deepseek.dsh" to quit'     # 已安装的发布版
    ```
 
-2. **从 DSH 会话（或任何 Electron-as-Node 环境）里启动，要清掉 `ELECTRON_RUN_AS_NODE`**，否则 Electron 退化成 Node，报 `bad option: --remote-debugging-port=9222`：
-
-   ```sh
-   env -u ELECTRON_RUN_AS_NODE ./dev-desktop-isolated.sh --skip-build
-   ```
+2. **`ELECTRON_RUN_AS_NODE` 已由启动器自动剥离**（`apps/desktop/scripts/dev.ts` 在启动应用前 `delete` 掉它）：DSH 自身以 Electron-as-Node 运行，它派生的终端会继承这个变量，Electron 于是退化成 Node、报 `bad option: --remote-debugging-port=9222`。直接用启动器不再需要额外处理；只有绕过启动器手动调 Electron 时才要 `env -u ELECTRON_RUN_AS_NODE`。
 
 3. **必须在文件沙箱之外运行**（普通终端即可）：Chromium 要初始化自己的进程沙箱，在 DSH 沙箱里会 `sandbox initialization failed`，接着 GPU/网络/渲染进程连续崩溃。
 
@@ -160,7 +156,7 @@ git push
 
 | 症状 | 原因 | 处理 |
 |---|---|---|
-| `Electron: bad option: --remote-debugging-port` | 环境里有 `ELECTRON_RUN_AS_NODE=1` | `env -u ELECTRON_RUN_AS_NODE` 再启动 |
+| `Electron: bad option: --remote-debugging-port` | 环境里有 `ELECTRON_RUN_AS_NODE=1`（DSH 自己就是 Electron-as-Node，它开的终端会继承） | 启动器已自动剥离；手动调 Electron 时用 `env -u ELECTRON_RUN_AS_NODE` |
 | 点新客户端，开出来的是旧客户端 | 共用 userData + 单实例锁 | 先完全退出另一个 |
 | `sandbox initialization failed`、渲染进程崩溃 | 在 DSH 文件沙箱内启动 Electron | 换到普通终端 |
 | 打 DMG 卡住 600 秒后超时 | 在从 GitHub 下 dmgbuild 资源 | 加 `ELECTRON_BUILDER_BINARIES_MIRROR` |

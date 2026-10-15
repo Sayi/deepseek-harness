@@ -73,6 +73,10 @@ async function launchElectron(): Promise<void> {
     DSH_DESKTOP_OPEN_DEVTOOLS: process.env.DSH_DESKTOP_OPEN_DEVTOOLS ?? '1',
     ELECTRON_ENABLE_LOGGING: process.env.ELECTRON_ENABLE_LOGGING ?? '1',
   }
+  // The application must start as an application. An inherited ELECTRON_RUN_AS_NODE (present when this
+  // launcher itself runs under Electron, or in a terminal such a process spawned) makes Electron reject
+  // every Chromium switch with "bad option"; the Node-mode steps set it explicitly on their own children.
+  delete environment.ELECTRON_RUN_AS_NODE
   console.log(`desktop development: DSH_HOME=${home}`)
   console.log(`desktop development: userData=${userData}`)
   console.log(`desktop development: inspectors main=${String(mainPort)}, renderer=${String(rendererPort)}, host=${String(hostPort)}`)
