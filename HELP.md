@@ -141,10 +141,11 @@ git push origin master
 # 2) 把 master 合进自己的工作分支
 git switch harness-pro
 git merge master
+pnpm run build:artifacts      # 重建 lib/：不重建的话 dev 启动器会在导入期直接报错
 git push
 ```
 
-- **合并后必须重装依赖**：`CI=true pnpm install`。不加 `CI=true`（或 `--config.confirmModulesPurge=false`）时，pnpm 在需要重建 `node_modules` 的场景会直接中止并报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`。
+- **合并后必须重装依赖并重建产物**：`CI=true pnpm install`，然后 `pnpm run build:artifacts`。不加 `CI=true`（或 `--config.confirmModulesPurge=false`）时，pnpm 在需要重建 `node_modules` 的场景会直接中止并报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`。上游重写过构建系统（`typecheck`/`build` 现在都是 `tsx scripts/build.ts`），同步后 `lib/` 会整体过期；**dev 启动器的静态导入链会在它自己的构建步骤之前就报 `does not provide an export named ...`**，所以这一次重建不能省，且必须手动跑。
 - **冲突处理**：`git status` 看冲突文件 → 编辑 → `git add <file>` → `git commit` → `git push`。
 - **双语 sidecar 冲突是常态**（`*.i18n.yaml` 记录的是中英正文的分节哈希，两边都改过同一文档就必冲突）。**不要手工合并**，按合并后的正文重新生成即可：
   ```sh
@@ -165,6 +166,7 @@ git push
 | 打 DMG 卡住 600 秒后超时 | 在从 GitHub 下 dmgbuild 资源 | 加 `ELECTRON_BUILDER_BINARIES_MIRROR` |
 | 依赖安装极慢 | 走的 npm 官方源 | 加 `DSH_DESKTOP_NPM_REGISTRY` |
 | `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` | pnpm 要重建 `node_modules` 但当前没有 TTY | `CI=true pnpm install` |
+| `SyntaxError: ... does not provide an export named 'x'` | 同步上游后 `lib/` 是旧构建 | `pnpm run build:artifacts`（dev 启动器自己来不及修：静态导入先于它的构建步骤） |
 | `$HOME` 下 `mkdtemp` 报 EPERM | DSH 文件沙箱限制 | 在沙箱外运行该命令 |
 | `pip` 提示 `~/Library/Caches/pip` 不可写 | 目录归属/权限 | 无害，忽略 |
 | 菜单栏图标偏小或偏大 | 几何常量 | 调 `MACOS_GLYPH_EDGE` / `MACOS_GLYPH_MARGIN` / `MACOS_TILE_GLYPH`，重跑 `pnpm --dir apps/desktop run render:tray-icon` |
