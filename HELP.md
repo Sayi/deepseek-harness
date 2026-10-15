@@ -127,10 +127,15 @@ upstream  https://github.com/deepseek-ai/deepseek-harness.git   # 原仓库
 ```
 
 ```sh
-# 1) master 跟随上游
+# 0) 先看这次要合什么（可预览冲突，不改工作区）
 git fetch upstream
+git log --oneline master..upstream/master | head
+git merge-tree --write-tree --name-only master harness-pro   # 列出会冲突的文件
+
+# 1) master 跟随上游
 git switch master
 git merge --ff-only upstream/master
+CI=true pnpm install          # 上游常带新包/新脚本，先同步依赖（见下方说明）
 git push origin master
 
 # 2) 把 master 合进自己的工作分支
@@ -139,9 +144,15 @@ git merge master
 git push
 ```
 
+- **合并后必须重装依赖**：`CI=true pnpm install`。不加 `CI=true`（或 `--config.confirmModulesPurge=false`）时，pnpm 在需要重建 `node_modules` 的场景会直接中止并报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`。
 - **冲突处理**：`git status` 看冲突文件 → 编辑 → `git add <file>` → `git commit` → `git push`。
+- **双语 sidecar 冲突是常态**（`*.i18n.yaml` 记录的是中英正文的分节哈希，两边都改过同一文档就必冲突）。**不要手工合并**，按合并后的正文重新生成即可：
+  ```sh
+  pnpm run verify-translation-pairing --write <对应的 .md>
+  git add <对应的 .i18n.yaml>
+  ```
 - **想要线性历史**：用 `git rebase master`，然后 `git push --force-with-lease`（**不要**用裸 `--force`）。
-- **别在 dev 客户端运行中 push**：pre-push 钩子会跑 `pnpm run typecheck`（全量构建，约 25 秒），期间会重写 `apps/desktop/lib`、`apps/cli/lib`，可能把你正跑着的客户端脚下的产物换掉。
+- **别在 dev 客户端运行中 push**：pre-push 钩子跑 `pnpm run typecheck`（现在是 `tsx scripts/build.ts --scope typecheck`，含 host/client 编译与聚合检查）；新基线首次约 2 分钟，增量约 25 秒，期间会重写 `lib/`，可能把你正跑着的客户端脚下的产物换掉。
 - 本分支相对上游多出来的东西（`HELP.md`、`dev-*-isolated.sh`、`prefetch-primary-runtime.mjs`）如需保持可提交，注意 `.git/info/exclude` 是**每个 clone 独立**的本地忽略文件；已跟踪的文件不受它影响。
 
 ## 4. 环境与坑（速查）
@@ -153,6 +164,7 @@ git push
 | `sandbox initialization failed`、渲染进程崩溃 | 在 DSH 文件沙箱内启动 Electron | 换到普通终端 |
 | 打 DMG 卡住 600 秒后超时 | 在从 GitHub 下 dmgbuild 资源 | 加 `ELECTRON_BUILDER_BINARIES_MIRROR` |
 | 依赖安装极慢 | 走的 npm 官方源 | 加 `DSH_DESKTOP_NPM_REGISTRY` |
+| `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` | pnpm 要重建 `node_modules` 但当前没有 TTY | `CI=true pnpm install` |
 | `$HOME` 下 `mkdtemp` 报 EPERM | DSH 文件沙箱限制 | 在沙箱外运行该命令 |
 | `pip` 提示 `~/Library/Caches/pip` 不可写 | 目录归属/权限 | 无害，忽略 |
 | 菜单栏图标偏小或偏大 | 几何常量 | 调 `MACOS_GLYPH_EDGE` / `MACOS_GLYPH_MARGIN` / `MACOS_TILE_GLYPH`，重跑 `pnpm --dir apps/desktop run render:tray-icon` |
