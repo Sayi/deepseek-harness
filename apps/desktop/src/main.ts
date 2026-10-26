@@ -39,6 +39,7 @@ import { DesktopUpdateCoordinator } from './update-coordinator.ts'
 import { prepareDesktopUpdateWindow } from './update-window.ts'
 import { DesktopCommandManager } from './command-management.ts'
 import { serveWebDocument, authenticateWebHost, forwardWebRequest } from './web-document.ts'
+import { pruneHostAuthCookies } from './host-cookies.ts'
 import { DesktopFatalRecovery } from './fatal-recovery.ts'
 import { pruneCrashReports, RendererConsoleTail, writeCrashReport, type CrashReportSource } from './crash-report.ts'
 import { openWelcomeWindow } from './welcome-window.ts'
@@ -63,6 +64,13 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import { openSplashWindow, type DesktopSplashWindow } from './splash-window.ts'
+
+let splash: DesktopSplashWindow | undefined
+const closeSplash = (): void => {
+  splash?.close()
+  splash = undefined
+}
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -124,6 +132,7 @@ function persistCrashReport(error: unknown, source: CrashReportSource): Promise<
 }
 
 function reportFatal(error: unknown, source: CrashReportSource): void {
+  closeSplash()
   console.error(error)
   if (shuttingDown) {
     // No dialog during shutdown, but the report still records what failed on the way out.
@@ -317,6 +326,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
 }
 
 async function main(): Promise<void> {
+  splash = openSplashWindow()
   const desktopSettings = readDesktopSettings(app.getPath('userData'))
   void pruneCrashReports(app.getPath('logs'))
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
@@ -474,6 +484,8 @@ async function main(): Promise<void> {
     return {
       start: async () => {
         const ready = await host.start()
+        // Every launch binds a new port, so earlier launch cookies would otherwise accumulate in this jar.
+        await pruneHostAuthCookies(session.defaultSession, ready.url)
         hostCookie = await authenticateWebHost(ready.url)
         hostUrl = ready.url
         if (ready.injections === undefined) throw new Error('Desktop Host did not provide boot injections')
@@ -593,7 +605,10 @@ async function main(): Promise<void> {
     if (backend.host === undefined || welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
     return welcomeBackend.read()
   }
-  stopForRecovery = () => backend.close()
+  stopForRecovery = () => {
+    closeSplash()
+    return backend.close()
+  }
 
   const reconcileBackend = (): Promise<void> => {
     startup ??= (async () => {
@@ -1158,6 +1173,7 @@ async function main(): Promise<void> {
     if (isQuitting() || recovery.active || window.isDestroyed()) return
     if (activate) window.show()
     else window.showInactive()
+    closeSplash()
     enteredWorkspace = true
     if (welcomeWindow !== undefined) {
       welcomeWindow.close()
@@ -1180,6 +1196,7 @@ async function main(): Promise<void> {
       if (!welcomeWindow.isVisible()) void track('auth_page_view', {})
       welcomeWindow.show()
       welcomeWindow.focus()
+      closeSplash()
       return Promise.resolve()
     }
     openingWelcome ??= (async () => {
@@ -1215,6 +1232,7 @@ async function main(): Promise<void> {
         },
         skip: enterWorkspace,
       })
+      closeSplash()
       const window = welcomeWindow
       window.once('closed', () => {
         void welcomeBackend?.account.state().then((state) => {
@@ -1282,6 +1300,7 @@ async function main(): Promise<void> {
   const finishQuit = (): void => {
     quitting = true
     shuttingDown = true
+    closeSplash()
     updateJournal?.action('quit-requested')
     quitConfirmation.dispose()
     backgroundNotice?.dispose()
