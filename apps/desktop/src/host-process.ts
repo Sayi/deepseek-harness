@@ -39,6 +39,11 @@ type DesktopHostEvent = ReadyEvent | FatalEvent | PlatformSessionEvent | { reado
   readonly activeTasks: boolean
   readonly scheduledTasks: boolean
   readonly error?: string
+} | {
+  readonly type: 'session-menu'
+  readonly requestId: number
+  readonly sessions?: readonly DesktopTraySession[]
+  readonly error?: string
 }
 
 /** Correlated answer to one shell control request. */
@@ -49,6 +54,19 @@ export interface DesktopQuitInspection {
   readonly activeTasks: boolean
   readonly scheduledTasks: boolean
 }
+
+/** One Session the tray lists, as the Host reported it when the menu opened. */
+export interface DesktopTraySession {
+  readonly sessionId: string
+  /** Latest log-backed title; absent until the Session records one. */
+  readonly title?: string
+  /** Display name of the Session's working directory. */
+  readonly project?: string
+  readonly running: boolean
+}
+
+/** Tray listing deadline; a slower Host keeps the list the tray received last. */
+export const TRAY_SESSION_DEADLINE_MS = 400
 
 /** Quit inspection deadline; a slower Host counts as unknown work and the shell asks before quitting. */
 export const QUIT_INSPECTION_DEADLINE_MS = 2_000
@@ -97,9 +115,23 @@ function isDesktopHostEvent(message: unknown): message is DesktopHostEvent {
     case 'quit-inspection':
       return Number.isSafeInteger(candidate.requestId) && typeof candidate.activeTasks === 'boolean'
         && typeof candidate.scheduledTasks === 'boolean' && (candidate.error === undefined || typeof candidate.error === 'string')
+    case 'session-menu':
+      return Number.isSafeInteger(candidate.requestId) && (candidate.error === undefined || typeof candidate.error === 'string')
+        && (candidate.sessions === undefined
+          || (Array.isArray(candidate.sessions) && candidate.sessions.every(isTraySession)))
     default:
       return false
   }
+}
+
+/** Whether one tray listing row carries the fields the menu renders. */
+function isTraySession(value: unknown): value is DesktopTraySession {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('sessionId' in value) || typeof value.sessionId !== 'string' || value.sessionId.length === 0) return false
+  if (!('running' in value) || typeof value.running !== 'boolean') return false
+  if ('title' in value && value.title !== undefined && typeof value.title !== 'string') return false
+  if ('project' in value && value.project !== undefined && typeof value.project !== 'string') return false
+  return true
 }
 
 async function exitsWithin(exit: Promise<void>, milliseconds: number): Promise<boolean> {
@@ -270,6 +302,18 @@ export class DesktopHostProcess {
   }
 
   /**
+   * List the Sessions the tray menu offers.
+   * @returns At most five Sessions, running ones first; rejects when the Host is unavailable
+   *   or misses {@link TRAY_SESSION_DEADLINE_MS}, and the tray then keeps the list it received last.
+   */
+  async sessionMenu(): Promise<readonly DesktopTraySession[]> {
+    const response = await this.control({ type: 'session-menu' }, TRAY_SESSION_DEADLINE_MS, 'desktop tray: session listing timed out', 'desktop tray')
+    if (response.type !== 'session-menu') throw new Error('desktop tray: Host answered with a different control response')
+    if (response.sessions === undefined) throw new Error(response.error ?? 'desktop tray: Host returned no session listing')
+    return response.sessions
+  }
+
+  /**
    * @param address - Session-scoped file reference.
    * @param signal - preparation cancellation.
    * @returns privately authorized local resource, or null when nonlocal.
@@ -284,7 +328,7 @@ export class DesktopHostProcess {
 
   private async control(
     request: { readonly type: 'update-tasks'; readonly action: 'inspect' | 'lock' | 'unlock' } | { readonly type: 'quit-inspection' }
-      | { readonly type: 'file-drag-resource'; readonly address: string },
+      | { readonly type: 'session-menu' } | { readonly type: 'file-drag-resource'; readonly address: string },
     deadlineMs: number, deadlineMessage: string, operation: string, signal?: AbortSignal,
   ): Promise<DesktopHostControlResponse> {
     const child = this.child

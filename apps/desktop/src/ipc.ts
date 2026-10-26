@@ -36,6 +36,7 @@ export const DESKTOP_IPC = {
   windowFullscreen: 'dsh-desktop:window-fullscreen',
   windowsAppearance: 'dsh-desktop:windows-appearance',
   windowsMenu: 'dsh-desktop:windows-menu',
+  trayAction: 'dsh-desktop:tray-action',
 } as const
 
 /** Desktop release update state rendered by desktop-owned UI. */
@@ -74,6 +75,11 @@ export interface DesktopUpdatePresentation {
   readonly failure?: DesktopUpdateFailureKind
 }
 
+/** One tray choice delivered to the page; the shell already showed and focused the window. */
+export type DesktopTrayAction =
+  | { readonly kind: 'open-session'; readonly sessionId: string }
+  | { readonly kind: 'open-settings' }
+
 /** Product documents cannot supply update versions, package URLs, or installation authorization. */
 export interface DshDesktopProductApi {
   readonly protocolVersion: 1
@@ -81,6 +87,10 @@ export interface DshDesktopProductApi {
   readonly fileDrag: DesktopFileDrag
   readonly keyboard: DesktopKeyboardApi
   readonly shortcuts: DesktopShortcutsApi
+  readonly tray: {
+    /** @param listener - receives each tray choice until the returned disposer runs. */
+    onAction(listener: (action: DesktopTrayAction) => void): () => void
+  }
   /**
    * Local machine description for the feedback questionnaire.
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.

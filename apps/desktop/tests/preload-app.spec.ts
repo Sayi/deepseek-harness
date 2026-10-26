@@ -58,6 +58,27 @@ it('limits product documents to update status and a native confirmation action',
   expect(electron.ipcRenderer.off).toHaveBeenCalledWith(DESKTOP_IPC.updatesPresentation, handler)
 })
 
+it('holds tray choices until the page subscribes and drops payloads it cannot render', async () => {
+  vi.stubGlobal('location', new URL('dsh-app://app/index.html'))
+  await import('../src/preload-app.ts')
+  const api = electron.contextBridge.exposeInMainWorld.mock.calls.find(([name]) => name === 'dshDesktop')?.[1] as DshDesktopProductApi
+  const deliver = electron.ipcRenderer.on.mock.calls.find(([channel]) => channel === DESKTOP_IPC.trayAction)?.[1] as
+    (event: unknown, action: unknown) => void
+  // Arriving before any client plugin subscribes keeps the choice, not the malformed neighbour.
+  deliver({}, { kind: 'open-settings' })
+  deliver({}, { kind: 'open-session' })
+  const listener = vi.fn()
+  const dispose = api.tray.onAction(listener)
+  expect(listener.mock.calls).toEqual([[{ kind: 'open-settings' }]])
+  deliver({}, { kind: 'open-session', sessionId: 'session-1' })
+  expect(listener).toHaveBeenLastCalledWith({ kind: 'open-session', sessionId: 'session-1' })
+  deliver({}, { kind: 'unknown' })
+  expect(listener).toHaveBeenCalledTimes(2)
+  dispose()
+  deliver({}, { kind: 'open-session', sessionId: 'session-2' })
+  expect(listener).toHaveBeenCalledTimes(2)
+})
+
 it.each(['dsh-app://shell/plugin-manager.html', 'dsh-app://other/index.html', 'https://shell/startup.html', 'http://example.com/'])('exposes only the carrier marker to %s', async (url) => {
   vi.stubGlobal('location', new URL(url))
   await import('../src/preload-app.ts')

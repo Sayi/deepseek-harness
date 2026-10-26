@@ -226,6 +226,26 @@ describe('ui-workspace apply', () => {
     ])
   })
 
+  it('routes Desktop tray choices to the navigation the sidebar rows use', async () => {
+    const b = await bench()
+    onTestFinished(() => b.ctx.fiber.dispose())
+    type Action = { readonly kind: string; readonly sessionId?: string }
+    const listeners: ((action: Action) => void)[] = []
+    const disposeTray = vi.fn(() => { listeners.length = 0 })
+    vi.stubGlobal('dshDesktop', {
+      tray: { onAction: (listener: (action: Action) => void) => { listeners.push(listener); return disposeTray } },
+    })
+    onTestFinished(() => { vi.unstubAllGlobals() })
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const open = vi.spyOn(b.ctx.uiWorkspace, 'openSession').mockImplementation(() => {})
+    listeners[0]!({ kind: 'open-session', sessionId: 'session-1' })
+    expect(open).toHaveBeenCalledWith('session-1')
+    listeners[0]!({ kind: 'open-settings' })
+    expect(open).toHaveBeenCalledOnce()
+    await b.ctx.fiber.dispose()
+    expect(disposeTray).toHaveBeenCalledOnce()
+  })
+
   it('publishes the Workspace access Hook over the remoteAccess service', async () => {
     const b = await bench()
     onTestFinished(() => b.ctx.fiber.dispose())

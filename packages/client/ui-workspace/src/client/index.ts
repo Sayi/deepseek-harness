@@ -26,7 +26,7 @@ import type { RemoteEndpoint } from '@deepseek-ai/dsh-api-remote-access/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { SessionId } from '@deepseek-ai/dsh-session/types'
 // Type-only: pulls the Controller service merges.
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -103,6 +103,16 @@ export const inject = [
   'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'layout', 'shortcuts', 'remoteAccess',
 ]
 
+/** One tray choice the Desktop shell delivers to the page (mirrors its preload contract). */
+type DesktopTrayAction =
+  | { readonly kind: 'open-session'; readonly sessionId: string }
+  | { readonly kind: 'open-settings' }
+
+/** Desktop bridge members this plugin reads; the browser build has no such object. */
+interface DesktopTrayBridge {
+  readonly tray?: { readonly onAction?: (listener: (action: DesktopTrayAction) => void) => () => void }
+}
+
 /**
  * Register the browser and picker once their slot declarations are on the
  * ledger. Inject factories return plain callbacks; data reads use the
@@ -124,6 +134,15 @@ export function apply(ctx: Context): void {
   const uiWorkspace = new UiWorkspaceService(
     ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify,
   )
+  // The Desktop tray routes a chosen Session through the same navigation the sidebar rows use;
+  // the shell has already shown and focused the window when this arrives.
+  const subscribeTray = (globalThis as typeof globalThis & { dshDesktop?: DesktopTrayBridge })
+    .dshDesktop?.tray?.onAction
+  if (subscribeTray !== undefined) {
+    ctx.effect(() => subscribeTray((action) => {
+      if (action.kind === 'open-session') uiWorkspace.openSession(SessionId(action.sessionId))
+    }), 'ui-workspace: Desktop tray actions')
+  }
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },
     keyedHooks: {

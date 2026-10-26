@@ -13,6 +13,7 @@ import { localDragResource } from './file-drag.ts'
 
 import { installDesktopUpdateTaskControl } from './update-tasks.ts'
 import { installDesktopQuitInspection } from './quit-inspection.ts'
+import { installDesktopTraySessions } from './session-menu.ts'
 import { installPlatformSessionPublisher } from './platform-session.ts'
 import { installOfficeEngineResolution } from './office-engine.ts'
 
@@ -47,6 +48,7 @@ async function main(): Promise<void> {
   const control: {
     updateTasks?: ReturnType<typeof installDesktopUpdateTaskControl>
     quitInspection?: ReturnType<typeof installDesktopQuitInspection>
+    traySessions?: ReturnType<typeof installDesktopTraySessions>
   } = {}
   const send = (message: object): Promise<void> => new Promise((resolve, reject) => {
     if (!process.connected || process.send === undefined) { resolve(); return }
@@ -108,6 +110,19 @@ async function main(): Promise<void> {
       })().catch((error: unknown) => { console.error(error) })
       return
     }
+    if (message.type === 'session-menu') {
+      if (!('requestId' in message) || !Number.isSafeInteger(message.requestId)) return
+      const requestId = message.requestId
+      void (async () => {
+        try {
+          if (stopping !== undefined || control.traySessions === undefined) throw new Error('desktop tray: Host is unavailable')
+          await send({ type: 'session-menu', requestId, sessions: await control.traySessions() })
+        } catch (error) {
+          await send({ type: 'session-menu', requestId, error: error instanceof Error ? error.message : String(error) })
+        }
+      })().catch((error: unknown) => { console.error(error) })
+      return
+    }
     if (message.type !== 'update-tasks' || !('requestId' in message) || !Number.isSafeInteger(message.requestId)
       || !('action' in message) || !['inspect', 'lock', 'unlock'].includes(String(message.action))) return
     void (async () => {
@@ -125,6 +140,7 @@ async function main(): Promise<void> {
   const { ctx } = await application
   control.updateTasks = installDesktopUpdateTaskControl(ctx)
   control.quitInspection = installDesktopQuitInspection(ctx)
+  control.traySessions = installDesktopTraySessions(ctx)
   await ctx.plugin(desktopOffice, {
     runtimeDir,
     source: process.argv[4] ?? join(runtimeDir, '..', 'runtime', 'primary-runtime'),

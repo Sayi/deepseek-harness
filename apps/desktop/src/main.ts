@@ -30,7 +30,7 @@ import { installDesktopFileDrag } from './file-drag.ts'
 import { installDesktopDirectoryPicker } from './directory-picker.ts'
 import { installMicrophonePermissions } from './microphone-permissions.ts'
 import { DesktopBackendController } from './backend-controller.ts'
-import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
+import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopTrayAction, type DesktopUpdateState } from './ipc.ts'
 import { readDeviceInfo } from './device-info.ts'
 import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
 import { claimDesktopSingleInstance } from './single-instance.ts'
@@ -62,7 +62,7 @@ import { DesktopBrowserGuests } from './browser-guests.ts'
 import { installDesktopShortcuts } from './keyboard.ts'
 import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
-import { DesktopTray } from './tray.ts'
+import { DesktopTray, type DesktopTraySession } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
 import { openSplashWindow, type DesktopSplashWindow } from './splash-window.ts'
 
@@ -544,6 +544,7 @@ async function main(): Promise<void> {
       },
       updateTasks: (action: 'inspect' | 'lock' | 'unlock') => host.updateTasks(action),
       inspectQuit: () => host.inspectQuit(),
+      sessionMenu: () => host.sessionMenu(),
       resolveDragResource: (address: string, signal?: AbortSignal) => host.resolveDragResource(address, signal),
     }
   }, (state) => {
@@ -1035,14 +1036,39 @@ async function main(): Promise<void> {
   refreshApplicationMenu()
   const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
   const macosTrayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-macosTemplate.png') : join(process.resourcesPath, 'tray-macosTemplate.png')
+  /**
+   * Show the primary window, then hand one tray choice to the page. A page that is still loading
+   * receives it after its first frame; the preload holds it until the client plugins subscribe.
+   */
+  const sendTrayAction = (action: DesktopTrayAction): void => {
+    focusPrimaryWindow()
+    const window = mainWindow
+    if (window === undefined || window.isDestroyed()) return
+    const deliver = (): void => { if (!window.isDestroyed()) window.webContents.send(DESKTOP_IPC.trayAction, action) }
+    if (window.webContents.isLoadingMainFrame()) window.webContents.once('did-finish-load', deliver)
+    else deliver()
+  }
+  // The last listing the Host answered; a slow or restarting Host keeps this one rather than an empty menu.
+  let traySessions: readonly DesktopTraySession[] = []
+  const readTraySessions = async (): Promise<readonly DesktopTraySession[]> => {
+    const listed = await backend.host?.sessionMenu().catch((): undefined => {
+      // The tray deadline elapsed or the Host is unavailable; the menu keeps the listing it has.
+      return undefined
+    })
+    if (listed !== undefined) traySessions = listed
+    return traySessions
+  }
   if (process.platform === 'win32' || process.platform === 'darwin') {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
-    // macOS shows the same icon as a menu bar status item, marked as a template image and left without a
-    // menu so a click reaches the application; Windows keeps its open and quit entries in the tray menu.
+    // A single click reaches the application on both platforms; the right-click menu carries the recent
+    // Sessions, Settings, and Quit, so macOS keeps its menu bar item without a persistent context menu.
     const macOS = process.platform === 'darwin'
     try {
-      tray = new DesktopTray({ iconPath: macOS ? macosTrayIconPath : trayIconPath, templateImage: macOS, contextMenu: !macOS,
-        locale: currentDesktopLocale, open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
+      tray = new DesktopTray({ iconPath: macOS ? macosTrayIconPath : trayIconPath, templateImage: macOS,
+        locale: currentDesktopLocale, open: () => { focusPrimaryWindow() }, quit: () => { app.quit() },
+        sessions: readTraySessions,
+        openSession: (sessionId) => { sendTrayAction({ kind: 'open-session', sessionId }) },
+        settings: () => { sendTrayAction({ kind: 'open-settings' }) } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }
   const backgroundNotice = process.platform === 'win32'

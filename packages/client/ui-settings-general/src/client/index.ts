@@ -67,6 +67,16 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin (shell chrome + General copy). */
 const NS = 'settings'
 
+/** One tray choice the Desktop shell delivers (mirrors its preload contract). */
+type DesktopTrayAction =
+  | { readonly kind: 'open-session'; readonly sessionId: string }
+  | { readonly kind: 'open-settings' }
+
+/** Desktop bridge members this plugin reads; the browser build has no such object. */
+interface DesktopSettingsBridge {
+  readonly tray?: { readonly onAction?: (listener: (action: DesktopTrayAction) => void) => () => void }
+}
+
 /**
  * Required services (cordis fiber inject). The target slots are declared by
  * ui-settings' apply, whose activation order relative to this one is NOT
@@ -212,6 +222,12 @@ export function apply(ctx: ClientContext): void {
         },
       })
 
+      // The Desktop tray's Settings entry opens the same panel the sidebar trigger does.
+      const subscribeTray = (globalThis as typeof globalThis & { dshDesktop?: DesktopSettingsBridge })
+        .dshDesktop?.tray?.onAction
+      const disposeTray = subscribeTray?.((action) => {
+        if (action.kind === 'open-settings') shellInstance.actions.open()
+      }) ?? (() => {})
       const disposeSlot = ctx.slots.register({
         name: 'sidebar.settings',
         locale: NS,
@@ -227,7 +243,7 @@ export function apply(ctx: ClientContext): void {
         },
         inject: shellInjected,
       }, SettingsRoot)
-      return () => { disposeCommand(); disposeSlot() }
+      return () => { disposeTray(); disposeCommand(); disposeSlot() }
     }))
 
   ctx.slots.inject('settings.trigger', () =>

@@ -11,6 +11,7 @@ const HTTP_HOST = `
 import { createServer } from 'node:http'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+let sessionListings = 0
 const server = createServer((request, response) => {
   if (request.url === '/fatal') {
     process.send({ type: 'fatal', message: 'plugin unavailable' })
@@ -53,6 +54,18 @@ process.on('message', message => {
     // Ids divisible by three never answer; the others report scheduled work for odd ids.
     if (message.requestId % 3 === 0) return
     process.send({ type: 'quit-inspection', requestId: message.requestId, activeTasks: false, scheduledTasks: message.requestId % 2 === 1 })
+    return
+  }
+  if (message.type === 'session-menu') {
+    if (sessionListings === 0) {
+      sessionListings += 1
+      process.send({ type: 'session-menu', requestId: message.requestId, sessions: [
+        { sessionId: 'session-1', title: 'Fix the login redirect', project: 'easygo-service', running: true },
+        { sessionId: 'session-2', running: false },
+      ] })
+      return
+    }
+    process.send({ type: 'session-menu', requestId: message.requestId, error: 'listing failed' })
     return
   }
   if (message.type !== 'shutdown') return
@@ -123,6 +136,37 @@ describe('desktop host process', () => {
     await host.stop(true)
     await expect(host.updateTasks('inspect')).rejects.toThrow('Host is unavailable')
   })
+
+  it('correlates the tray session listing and rejects an answer that carries none', async () => {
+    const host = hostProcess(projectWithHost())
+    await expect(host.sessionMenu()).rejects.toThrow('Host is unavailable')
+    await host.start()
+    expect(await host.sessionMenu()).toEqual([
+      { sessionId: 'session-1', title: 'Fix the login redirect', project: 'easygo-service', running: true },
+      { sessionId: 'session-2', running: false },
+    ])
+    await expect(host.sessionMenu()).rejects.toThrow('listing failed')
+  })
+
+  it('ignores a tray listing whose rows do not carry the fields the menu renders', async () => {
+    const host = hostProcess(projectWithHost(`
+      import { createServer } from 'node:http'
+      const server = createServer((_request, response) => { response.end('ok') })
+      server.listen(0, '127.0.0.1', () => {
+        process.send({ type: 'ready', url: 'http://127.0.0.1:' + server.address().port + '/' })
+      })
+      process.on('message', message => {
+        if (message.type === 'session-menu') {
+          process.send({ type: 'session-menu', requestId: message.requestId, sessions: [{ sessionId: 42, running: 'yes' }] })
+          return
+        }
+        if (message.type === 'shutdown') server.close(() => { process.send({ type: 'shutdown-complete' }, () => process.disconnect()) })
+      })
+    `))
+    await host.start()
+    // A row the menu cannot render fails the private channel instead of showing a half-read entry.
+    await expect(host.sessionMenu()).rejects.toThrow('invalid IPC event')
+  }, 15_000)
 
   it('correlates quit inspections with task requests and fails an unanswered one at its own deadline', async () => {
     const host = hostProcess(projectWithHost())

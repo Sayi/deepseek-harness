@@ -48,6 +48,15 @@
     },
     {
       "path": "../../packages/util/brand"
+    },
+    {
+      "path": "../../packages/session-query/session-query"
+    },
+    {
+      "path": "../../packages/session/session-projection"
+    },
+    {
+      "path": "../../packages/session/session-projection-cache"
     }
   ]
 }

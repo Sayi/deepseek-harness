@@ -77,6 +77,32 @@ describe('ui-settings-general shell', () => {
     expect(row.hooks.desktopUpdate.getSnapshot().presentation).toEqual(status)
   }, COLD_BOOT_TIMEOUT_MS)
 
+  it('opens the panel when the Desktop tray asks for settings', async ({ start }) => {
+    const listeners = new Set<(action: { readonly kind: string }) => void>()
+    vi.stubGlobal('dshDesktop', {
+      protocolVersion: 1,
+      tray: { onAction: (listener: (action: { readonly kind: string }) => void) => {
+        listeners.add(listener)
+        return () => { listeners.delete(listener) }
+      } },
+    })
+    onTestFinished(() => { vi.unstubAllGlobals() })
+    const c = await start()
+    const shell = c.ctx.slots.entries('sidebar.settings')[0]!
+    const instance = (shell.store as { create(): { getSnapshot(): { open: boolean } } }).create()
+    expect(instance.getSnapshot().open).toBe(false)
+    // Only the settings choice opens this panel; the Session choices belong to ui-workspace.
+    for (const listener of [...listeners]) listener({ kind: 'new-session' })
+    expect(instance.getSnapshot().open).toBe(false)
+    for (const listener of [...listeners]) listener({ kind: 'open-settings' })
+    expect(instance.getSnapshot().open).toBe(true)
+    const subscribed = listeners.size
+    await c.unload(SELF)
+    await c.flush()
+    // Unloading releases this plugin's subscription and leaves the other holders' in place.
+    expect(listeners.size).toBe(subscribed - 1)
+  }, COLD_BOOT_TIMEOUT_MS)
+
   it('declares its services', () => {
     expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts', 'modules', 'remoteAccess'])
   })

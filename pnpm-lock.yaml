@@ -846,12 +846,24 @@ importers:
       '@deepseek-ai/dsh-schedule':
         specifier: workspace:*
         version: link:../../packages/schedule/schedule
+      '@deepseek-ai/dsh-session-projection':
+        specifier: workspace:*
+        version: link:../../packages/session/session-projection
+      '@deepseek-ai/dsh-session-projection-cache':
+        specifier: workspace:*
+        version: link:../../packages/session/session-projection-cache
+      '@deepseek-ai/dsh-session-query':
+        specifier: workspace:*
+        version: link:../../packages/session-query/session-query
       '@deepseek-ai/dsh-skill-office':
         specifier: workspace:*
         version: link:../../packages/skill/skill-office
       '@deepseek-ai/dsh-tool-workspace-dependencies':
         specifier: workspace:*
         version: link:../../packages/skill/tool-workspace-dependencies
+      '@deepseek-ai/dsh-util-workspace-path':
+        specifier: workspace:*
+        version: link:../../packages/util/workspace-path
       '@deepseek-ai/dsh-workspace':
         specifier: workspace:*
         version: link:../../packages/workspace/workspace
@@ -892,9 +904,6 @@ importers:
       '@deepseek-ai/dsh-tool-executor-native':
         specifier: workspace:*
         version: link:../../packages/core/tool-executor-native
-      '@deepseek-ai/dsh-util-workspace-path':
-        specifier: workspace:*
-        version: link:../../packages/util/workspace-path
 
   apps/plugin-market-generator:
     dependencies:

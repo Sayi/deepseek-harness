@@ -90,6 +90,7 @@ const harness = await vi.hoisted(async () => {
       mainFrame: { url: '' },
       getZoomFactor: () => 1,
       isDestroyed: () => this.destroyed,
+      isLoadingMainFrame: vi.fn((): boolean => false),
       setIgnoreMenuShortcuts: vi.fn(),
       focus: vi.fn(),
       sendInputEvent: vi.fn(),
@@ -154,6 +155,7 @@ const harness = await vi.hoisted(async () => {
   class FakeHost {
     readonly updateTasks = vi.fn(async (_action: 'inspect' | 'lock' | 'unlock') => false)
     readonly inspectQuit = vi.fn(async () => ({ activeTasks: false, scheduledTasks: false }))
+    readonly sessionMenu = vi.fn(async () => [] as const)
     url = 'http://127.0.0.1:3080/?token=test'
     fetch = vi.fn(async () => Response.json({ hasApiKey: true, writable: true, localePreference: null }))
     readonly ready = deferred()
@@ -206,6 +208,7 @@ const harness = await vi.hoisted(async () => {
   class FakeTray extends EventEmitter {
     readonly setToolTip = vi.fn()
     readonly setContextMenu = vi.fn()
+    readonly popUpContextMenu = vi.fn()
     readonly destroy = vi.fn()
     constructor(readonly image: FakeNativeImage) { super(); trays.push(this) }
   }
@@ -1306,10 +1309,47 @@ describe('desktop main startup', () => {
     expect(window.focus).toHaveBeenCalled()
     harness.app.emit('second-instance')
     expect(window.show).toHaveBeenCalledTimes(2)
-    // Locale changes relabel the tray together with the application menu.
-    const relabels = harness.trays[0]!.setContextMenu.mock.calls.length
+    // The menu is not installed as a persistent context menu; a right click builds it in the
+    // current locale, so the single click keeps reaching the window on every platform.
+    expect(harness.trays[0]!.setContextMenu).not.toHaveBeenCalled()
     harness.ipcOn.mock.calls.find(call => call[0] === DESKTOP_IPC.localeChanged)![1]({ sender: window.webContents, senderFrame: window.webContents.mainFrame }, 'zh')
-    expect(harness.trays[0]!.setContextMenu.mock.calls.length).toBe(relabels + 1)
+    harness.trays[0]!.emit('right-click')
+    await vi.waitFor(() => { expect(harness.trays[0]!.popUpContextMenu).toHaveBeenCalledOnce() })
+    expect(host.sessionMenu).toHaveBeenCalledOnce()
+    const template = harness.menu.mock.calls.at(-1)![0]
+    expect(template.map(item => item.type === 'separator' ? 'separator' : item.label)).toEqual([
+      '最近', '暂无最近会话', 'separator', '设置…', 'separator', '退出 DeepSeek Harness',
+    ])
+  })
+
+  it('shows the window and hands a chosen tray Session to the page, waiting for a loading page', async () => {
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    host.sessionMenu.mockResolvedValue([
+      { sessionId: 'session-1', title: 'Fix the login redirect', project: 'easygo-service', running: true },
+    ] as never)
+    window.show.mockClear()
+    harness.trays[0]!.emit('right-click')
+    await vi.waitFor(() => { expect(harness.trays[0]!.popUpContextMenu).toHaveBeenCalledOnce() })
+    const template = harness.menu.mock.calls.at(-1)![0]
+    expect(template[1]!.label).toBe('● Fix the login redirect — easygo-service')
+    window.webContents.isLoadingMainFrame.mockReturnValue(true)
+    ;(template[1] as { click: () => void }).click()
+    expect(window.show).toHaveBeenCalledOnce()
+    expect(window.webContents.send).not.toHaveBeenCalledWith(DESKTOP_IPC.trayAction, expect.anything())
+    window.webContents.emit('did-finish-load')
+    expect(window.webContents.send).toHaveBeenCalledWith(DESKTOP_IPC.trayAction,
+      { kind: 'open-session', sessionId: 'session-1' })
+  })
+
+  it('routes the tray settings entry through the same page channel', async () => {
+    await readyWorkspace()
+    const window = harness.windows[0]!
+    harness.trays[0]!.emit('right-click')
+    await vi.waitFor(() => { expect(harness.trays[0]!.popUpContextMenu).toHaveBeenCalledOnce() })
+    const template = harness.menu.mock.calls.at(-1)![0]
+    ;(template[3] as { click: () => void }).click()
+    expect(window.webContents.send).toHaveBeenCalledWith(DESKTOP_IPC.trayAction, { kind: 'open-settings' })
   })
 
   it('adds a macOS menu bar status item and hides on close without the Windows acknowledgement', async () => {

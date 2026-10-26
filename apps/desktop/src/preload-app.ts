@@ -2,7 +2,7 @@
 
 import type { DesktopShortcutInput, ShortcutConfigSnapshot, ShortcutSaveResult } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { DESKTOP_IPC, SCHEME, type DshDesktopProductApi, type DesktopUpdatePresentation } from './ipc.ts'
+import { DESKTOP_IPC, SCHEME, type DesktopTrayAction, type DshDesktopProductApi, type DesktopUpdatePresentation } from './ipc.ts'
 import { PLATFORM_IPC } from './platform-ipc.ts'
 import { markDocumentPlatform, syncWindowFullscreen } from './preload-platform.ts'
 import { syncNativeTheme } from './preload-theme.ts'
@@ -11,9 +11,51 @@ import { installMandatoryUpdateOverlay } from './preload-mandatory-overlay.ts'
 import { createDesktopBrowserBridge } from './preload-browser.ts'
 import type { FileDragHandle } from '@deepseek-ai/dsh-util-file-drag'
 
+/** Tray choices kept until the page's client plugins subscribe; more than a few means a page that never loads. */
+const MAX_PENDING_TRAY_ACTIONS = 4
+
+/** Tray choices received before any client plugin subscribed, in arrival order. */
+const pendingTrayActions: DesktopTrayAction[] = []
+
+const trayActionListeners = new Set<(action: DesktopTrayAction) => void>()
+
+// Bound before the page's scripts run, so a choice made while the workspace is still booting survives.
+ipcRenderer.on(DESKTOP_IPC.trayAction, (_event, action: unknown) => {
+  if (!isDesktopTrayAction(action)) return
+  if (trayActionListeners.size === 0) {
+    if (pendingTrayActions.length < MAX_PENDING_TRAY_ACTIONS) pendingTrayActions.push(action)
+    return
+  }
+  for (const listener of trayActionListeners) listener(action)
+})
+
+/**
+ * Whether one IPC payload is a tray choice this preload may forward.
+ * @param value - payload from the main process.
+ * @returns true for a known kind carrying the fields the page reads.
+ */
+function isDesktopTrayAction(value: unknown): value is DesktopTrayAction {
+  if (typeof value !== 'object' || value === null || !('kind' in value)) return false
+  switch (value.kind) {
+    case 'open-settings':
+      return true
+    case 'open-session':
+      return 'sessionId' in value && typeof value.sessionId === 'string' && value.sessionId.length > 0
+    default:
+      return false
+  }
+}
+
 function createProductApi(): DshDesktopProductApi {
   return {
     protocolVersion: 1,
+    tray: {
+      onAction(listener) {
+        trayActionListeners.add(listener)
+        for (const action of pendingTrayActions.splice(0)) listener(action)
+        return () => { trayActionListeners.delete(listener) }
+      },
+    },
     browser: createDesktopBrowserBridge(),
     fileDrag: {
       prepare: (source, requestId) => ipcRenderer.invoke(DESKTOP_IPC.fileDragPrepare, source, requestId) as
