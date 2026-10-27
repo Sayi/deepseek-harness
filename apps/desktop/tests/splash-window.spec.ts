@@ -27,11 +27,11 @@ beforeEach(() => {
 })
 
 describe('desktop splash window', () => {
-  it('provides frameless transparent 380x440 window options', () => {
+  it('provides frameless transparent 620x400 window options', () => {
     const options = splashWindowOptions()
     expect(options).toMatchObject({
-      width: 380,
-      height: 440,
+      width: 620,
+      height: 400,
       frame: false,
       transparent: true,
       center: true,

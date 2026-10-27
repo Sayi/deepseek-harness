@@ -21,8 +21,8 @@ export interface DesktopSplashWindowOptions {
  */
 export function splashWindowOptions(): BrowserWindowConstructorOptions {
   return {
-    width: 380,
-    height: 440,
+    width: 620,
+    height: 400,
     useContentSize: true,
     center: true,
     frame: false,
