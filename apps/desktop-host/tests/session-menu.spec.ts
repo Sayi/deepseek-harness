@@ -52,7 +52,7 @@ beforeEach(() => {
   listSessions.mockClear()
   ctx = new Context()
   // Service doubles exercise the listing against a real Cordis lifecycle.
-  ctx.provide('agents', { roots: () => agents } as never)
+  ctx.provide('agents', { list: () => agents } as never)
   ctx.provide('sessionQuery', { listSessions } as never)
   ctx.provide('workspaceRegistry', { archivedSessionIds: archived } as never)
   ctx.provide('sessionProjections', {
@@ -99,6 +99,11 @@ describe('Desktop tray session listing', () => {
   })
 
   it('leaves out archived, subagent, and unused draft Sessions', async () => {
+    agents.push({
+      id: SessionId('child-live'),
+      status: 'running',
+      session: { header: header('child-live', 0, { origin: 'subagent' }) },
+    })
     archived.push(SessionId('archived'))
     records.push({ header: header('archived', 1) })
     records.push({ header: header('child', 2, { origin: 'subagent' }) })

@@ -58,8 +58,8 @@ export function installDesktopTraySessions(ctx: Context): () => Promise<readonly
     const archived = new Set<string>(ctx.get('workspaceRegistry')?.archivedSessionIds ?? [])
     const listed = new Set<string>()
     const sessions: DesktopTraySession[] = []
-    for (const agent of agents.roots()) {
-      if (agent.status !== 'running') continue
+    for (const agent of agents.list()) {
+      if (agent.status !== 'running' || agent.session.header.origin === 'subagent') continue
       listed.add(agent.id)
       sessions.push(describe(agent.id, agent.session.header, liveFacts(projections, agent.session), true))
       if (sessions.length === DESKTOP_TRAY_SESSION_LIMIT) return sessions
